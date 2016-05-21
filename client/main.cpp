@@ -12,10 +12,10 @@
 
 #include "platform.h"
 
-#define url "http://hmnchat.no-ip.org"
+#define url "hmnchat.no-ip.org"
 #define port "6667"
 #define RX_LEN 512
-#define TX_LEN 512
+#define TX_LEN 20
 
 typedef struct response_config {
 	i32 socket_fd;
@@ -84,15 +84,17 @@ int main() {
 	pthread_create(&read_thread, NULL, get_response, (void *)&response);
 
 	for (u32 i = 0; i < 10; i++) {
-		char send_msg[TX_LEN];
-		sprintf(send_msg, "Hello, Server!\n");
+		char *message = "Hello, Server!";
+		char send_msg[strlen(message) + 1];
+		sprintf(send_msg, "%s", message);
 
 		int send_len;
-		if ((send_len = send(socket_fd, send_msg, TX_LEN + 1, 0)) == -1) {
+		if ((send_len = send(socket_fd, send_msg, strlen(message) + 1, 0)) == -1) {
 			printf("Send error!\n");
 			pthread_exit(NULL);
 			return 2;
 		}
+		usleep(1000);
 		printf("%d %lu\n", send_len, strlen(send_msg));
 	}
 
