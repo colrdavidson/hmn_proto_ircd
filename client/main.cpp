@@ -8,11 +8,12 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include "platform.h"
+
 #define url "http://hmnchat.no-ip.org"
 #define port "6667"
-#define rx_len 500
-
-typedef signed int i32;
+#define RX_LEN 512
+#define TX_LEN 512
 
 int main() {
 	struct addrinfo lookup;
@@ -53,8 +54,8 @@ int main() {
 		return 2;
 	}
 
-	char send_msg[1024];
-	sprintf(send_msg, "GET %s HTTP/1.0\n\n", url);
+	char send_msg[TX_LEN];
+	sprintf(send_msg, "Hello, Server!\n");
 
 	int send_len;
 	if ((send_len = send(socket_fd, send_msg, strlen(send_msg), 0)) == -1) {
@@ -63,9 +64,9 @@ int main() {
 	}
 	printf("%d %lu\n", send_len, strlen(send_msg));
 
-	char recv_msg[rx_len + 1];
+	char recv_msg[RX_LEN + 1];
 	int RCVLength;
-	if ((RCVLength = recv(socket_fd, recv_msg, rx_len, 0)) == -1) {
+	if ((RCVLength = recv(socket_fd, recv_msg, RX_LEN, 0)) == -1) {
 		printf("RCV error!\n");
 		return 2;
 	}
