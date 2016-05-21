@@ -86,6 +86,7 @@ int main() {
 	for (u32 i = 0; i < 10; i++) {
 		const char *message = "Hello, Server!";
 		char send_msg[strlen(message) + sizeof(u32) + 1];
+		memset(send_msg, 0, sizeof(send_msg));
 		sprintf(send_msg, "%s %u", message, i + 1);
 
 		printf("sent: %s\n", send_msg);
