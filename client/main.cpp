@@ -7,6 +7,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #include "platform.h"
 
@@ -15,12 +17,33 @@
 #define RX_LEN 512
 #define TX_LEN 512
 
+typedef struct response_config {
+	i32 socket_fd;
+} response_config;
+
+void *get_response(void *arg) {
+	i32 socket_fd = ((response_config *)arg)->socket_fd;
+	for (u32 i = 0; i < 10; i++) {
+		char recv_msg[RX_LEN + 1];
+		int RCVLength;
+
+		if ((RCVLength = recv(socket_fd, recv_msg, RX_LEN, 0)) == -1) {
+			printf("RCV error!\n");
+			return NULL;
+		}
+
+		printf("message: %s\n", recv_msg);
+	}
+	return NULL;
+}
+
 int main() {
 	struct addrinfo lookup;
 	struct addrinfo *result;
 	memset(&lookup, 0, sizeof(lookup));
     lookup.ai_family = AF_UNSPEC;
 	lookup.ai_socktype = SOCK_STREAM;
+	pthread_t read_thread;
 
 	i32 status;
 	if ((status = getaddrinfo(url, port, &lookup, &result)) != 0) {
@@ -30,6 +53,7 @@ int main() {
 
 	printf("IP addresses for hmn_proto\n");
 
+	// parse the addrinfo struct and print the ip4 and ip6 address for the url
 	char ip[INET6_ADDRSTRLEN];
 	for (struct addrinfo *ptr = result; ptr != NULL; ptr = ptr->ai_next) {
 		void *addr;
@@ -54,24 +78,25 @@ int main() {
 		return 2;
 	}
 
-	char send_msg[TX_LEN];
-	sprintf(send_msg, "Hello, Server!\n");
+	response_config response;
+	response.socket_fd = socket_fd;
 
-	int send_len;
-	if ((send_len = send(socket_fd, send_msg, strlen(send_msg), 0)) == -1) {
-		printf("Send error!\n");
-		return 2;
+	pthread_create(&read_thread, NULL, get_response, (void *)&response);
+
+	for (u32 i = 0; i < 10; i++) {
+		char send_msg[TX_LEN];
+		sprintf(send_msg, "Hello, Server!\n");
+
+		int send_len;
+		if ((send_len = send(socket_fd, send_msg, TX_LEN + 1, 0)) == -1) {
+			printf("Send error!\n");
+			pthread_exit(NULL);
+			return 2;
+		}
+		printf("%d %lu\n", send_len, strlen(send_msg));
 	}
-	printf("%d %lu\n", send_len, strlen(send_msg));
 
-	char recv_msg[RX_LEN + 1];
-	int RCVLength;
-	if ((RCVLength = recv(socket_fd, recv_msg, RX_LEN, 0)) == -1) {
-		printf("RCV error!\n");
-		return 2;
-	}
-
-	printf("message: %s\n", recv_msg);
+	pthread_join(read_thread,  NULL);
 	close(socket_fd);
 	return 0;
 }
