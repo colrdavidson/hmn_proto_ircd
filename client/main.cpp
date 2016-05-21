@@ -15,6 +15,7 @@
 #define url "hmnchat.no-ip.org"
 #define port "6667"
 #define RX_LEN 512
+#define MAX_MSG_LEN 256
 
 typedef struct response_config {
 	i32 socket_fd;
@@ -22,19 +23,34 @@ typedef struct response_config {
 
 void *get_response(void *arg) {
 	i32 socket_fd = ((response_config *)arg)->socket_fd;
-	for (u32 i = 0; i < 10; i++) {
+	while (true) {
 		char recv_msg[RX_LEN + 1];
-		int recieve_len;
 
-		if ((recieve_len = recv(socket_fd, recv_msg, RX_LEN, 0)) == -1) {
+		int recieve_len = recv(socket_fd, recv_msg, RX_LEN, 0);
+		if (recieve_len == -1) {
 			printf("recv error!\n");
 			return NULL;
 		}
 
-		printf("%s\n", recv_msg);
+		printf("%s", recv_msg);
 		usleep(10);
 	}
 	return NULL;
+}
+
+bool send_message(i32 socket_fd, char *message) {
+	char send_msg[strlen(message) + 1];
+	memset(send_msg, 0, sizeof(send_msg));
+	sprintf(send_msg, "%s", message);
+
+	printf("sent: %s", send_msg);
+
+	int send_len = send(socket_fd, send_msg, strlen(message) + 1, 0);
+	if (send_len == -1) {
+		printf("Send error!\n");
+		return false;
+	}
+	return true;
 }
 
 int main() {
@@ -83,23 +99,17 @@ int main() {
 
 	pthread_create(&read_thread, NULL, get_response, (void *)&response);
 
-	for (u32 i = 0; i < 10; i++) {
-		const char *message = "Hello, Server!";
-		char send_msg[strlen(message) + sizeof(u32) + 1];
-		memset(send_msg, 0, sizeof(send_msg));
-		sprintf(send_msg, "%s %u", message, i + 1);
+	bool running = true;
+	char message[MAX_MSG_LEN];
+	memset(&message, 0, sizeof(message));
 
-		printf("sent: %s\n", send_msg);
-		int send_len;
-		if ((send_len = send(socket_fd, send_msg, strlen(message) + sizeof(u32) + 1, 0)) == -1) {
-			printf("Send error!\n");
-			pthread_exit(NULL);
-			return 2;
-		}
-		sleep(1);
+	fgets(message, MAX_MSG_LEN, stdin);
+	while (running) {
+		running = send_message(socket_fd, message);
+		fgets(message, MAX_MSG_LEN, stdin);
 	}
 
-	pthread_join(read_thread,  NULL);
+	pthread_exit(NULL);
 	close(socket_fd);
 	return 0;
 }
