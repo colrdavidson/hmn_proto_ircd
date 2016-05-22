@@ -1,4 +1,5 @@
-#Packet Protocol
+```
+Packet Protocol
 
 - Single byte packet ID [1-255]
 - Always first byte.
@@ -20,3 +21,4 @@
     packet format: 6[03][17-byte UNIQUE ID][03][BASE64ENCODED 4000 char hard limit]
 7. long chat message tail
     packet format: 7[03][17-byte UNIQUE ID][03][BASE64ENCODED 4000 char hard limit]
+```
