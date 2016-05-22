@@ -1,10 +1,9 @@
 #Packet Protocol
 
-Single byte packet ID [1-255]
-Always first byte.
-
-USERNAME needs to be sanitized to standard viewable ASCII typeset
-All packets end with NULL
+- Single byte packet ID [1-255]
+- Always first byte.
+- USERNAME needs to be sanitized to standard viewable ASCII typeset
+- All packets end with NULL
 
 0. [NULL] - not used... end of packet marker
 1. request for username/password
