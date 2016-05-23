@@ -1,3 +1,4 @@
+```
 LINK: http://collabedit.com/x84fs
 
 #Packet Protocol
@@ -411,3 +412,4 @@ packet format: [FE][FF][XX][...][00]
               [...] alots that they should follow [FF][XX] for other packets that are supported
 
 255. used as the delimiter for packet fields
+```
