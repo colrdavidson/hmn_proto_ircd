@@ -9,13 +9,13 @@ Always first byte.
 USERNAME needs to be sanitized to standard viewable ASCII typeset
 All packets must end with [00] 
 
-0. used to as an end of packet marker [00]
+R0. reserved - used as end of packet marker [00]
 
 !START: ON TCP SOCKET CONNECT SERVER QUERIES WITH
 
 S1. request for username/password
-packet format: [01][FF]UP[00]
-        bytes: (01 FF 55 80 00)
+        packet format: [01][FF]UP[00]
+                bytes: (01 FF 55 80 00)
 
 EXPECTS
 
@@ -101,13 +101,284 @@ OR
 S9. bad response to original TCP connect query
         packet format: [09][FF]BAD[00]
                 bytes: (09 FF 42 41 44 00)
+                notes: server will close the connection
 
 !END: ON TCP SOCKET CONNECT SERVER QUERIES WITH
 
 //----------------------------------------------------
-//PACKET 10-79 are reserved...
-//to sort out the rest of this packet mess
+//PACKETS 10-79 are reserved...
+//to sort out the rest of this missing user packets
 //----------------------------------------------------
+
+// NOTES ON IDENTIFIERS USED FOR MESSAGING
+
+16-BYTE UNIQUE ID
+   - 1st 8-bytes of an incremental counter controlled by the server
+   - 2nd 8-bytes follow http://www.w3schools.com/jsref/jsref_gettime.asp
+
+8-BYTE UNIQUE ROOM ID
+   - ROOM ID (00 00 00 00 00 00 00 00) is always used for global message broadcast
+   - incremental room counter to prevent collisions on logs controlled by the server
+
+4-BYTE CLIENT MESSAGE ID
+   - Session only.
+   - Can reset on reconnect.
+   - Must be unique so only one instance of it appears per session.
+        - possibly uint32 counter advised
+
+!START: SHORT MESSAGING PACKETS
+
+// --------------------------------------------------
+// short message from user
+
+U80. short chat message
+         packet format: [50][FF][4-BYTE CLIENT MESSAGE ID][FF][8-BYTE UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
+                 bytes: (50 FF [...] FF [...] FF [...] 00)
+
+    REPLIES
+
+    S81. valid, invalid or missing short chat message packet data
+             packet format: [51][FF][4-BYTE CLIENT MESSAGE ID][FF][RID 01|02|03|04][M 01|02|03|04|05][00]
+                     bytes: (51 FF [...] FF 01|02|03|04 01|02|03|04|05 00)
+                     notes: RID = uniqie room id field
+                            01 = missing|02 = invalid|03 = okay|04 = not authrized
+                        
+                            M = messge body field
+                            01 = missing|02 = invalid|03 = okay|04 = bad base 64 encode|05 = empty
+
+    OR
+
+    S82. bad short chat message format
+             packet format: [52][FF][4-BYTE CLIENT MESSAGE ID][00]
+                     bytes: (52 FF [...] 00)
+                     
+    OR
+    
+    S83. bad short chat message format
+            packet format: [53][FF]BAD[00]
+                    bytes: (53 FF 42 41 44 00)
+                    notes: this packet is virtually useless, client won't know what message is attached to.
+                           it's just a general... you really messed up sending a packet of this type.
+    
+
+// --------------------------------------------------
+// short message from server
+    
+S84. short chat message
+         packet format: [54][FF][16-BYTE UNIQUE ID][FF][8-BYTE UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
+                 bytes: (54 FF [...] FF [...] FF [...] 00)
+
+    REPLIES
+    
+    U85. short chat message received
+             packet format: [55][FF][FIRST 8-BYTES OF 16-BYTE UNIQUE ID][00]
+                     bytes: (55 FF [..] 00)
+                     
+        REPLIES
+        
+        S86. bad short chat message received reply
+                 packet format: [56][FF][FIRST 8-BYTES OF 16-BYTE UNIQUE ID][00]
+                         bytes: (56 FF [...] 00)
+                         
+                         
+        OR
+        
+        S87. bad short chat message received reply
+                 packet format: [57][FF]BAD[00]
+                         bytes: (57 FF 42 41 44 00)
+                         notes: this packet is virtually useless, client won't know what message is attached to.
+                                it's just a general... you really messed up sending a packet of this type.
+
+!END: SHORT MESSAGING PACKETS
+
+!START: LONG MESSAGING PACKETS
+
+// --------------------------------------------------
+// long message head from user
+
+U88. long chat message head
+         packet format: [58][FF][TP 4 bytes][FF][4-BYTE CLIENT MESSAGE ID][FF][8-byte UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
+                 bytes: (58 [FF] [...] FF [...] FF [...] FF [...] 00)
+                 notes: TP [UINT32] = number of remaining packets [1..X]
+
+    REPLIES
+
+    S89. valid, invalid, missing long chat message head packet data
+             packet format: [59][FF][4-BYTE CLIENT MESSAGE ID][FF][TP 01|02|03][RID 01|02|03|04][M 01|02|03|04|05][00]
+                     bytes: (59 FF [...] FF 01|02|03 01|02|03|04 01|02|03|04|05 00)
+                     notes: TP = number of remaning packets field
+                            01 = missing|02 = invalid|03 = okay
+                            
+                            RID = uniqie room id field
+                            01 = missing|02 = invalid|03 = okay|04 = not authrized
+                        
+                            M = messge body field
+                            01 = missing|02 = invalid|03 = okay|04 = bad base 64 encode|05 = empty                            
+
+    OR
+
+    S90. bad long chat message head packet format
+             packet format: [5A][FF][4-BYTE CLIENT MESSAGE ID][00]
+                     bytes: (5A FF [...] 00)
+
+    OR
+    
+    S91. bad long chat message head packer format
+            packet format: [5B][FF]BAD[00]
+                    bytes: (5B FF 42 41 44 00)
+                    notes: this packet is virtually useless, client won't know what message is attached to.
+                           it's just a general... you really messed up sending a packet of this type.
+
+
+
+    POSSIBLE REPLIES
+    
+    S92. resend long chat message head packet
+             packet format: [5C][FF][4-BYTE CLIENT MESSAGE ID][00]
+                     bytes: (5C FF [...] 00)
+
+
+// --------------------------------------------------
+// long message next from user
+
+U93. long chat message next
+         packet format: [5D][FF][PN 4 bytes][FF][HEAD 4-BYTE CLIENT MESSAGE ID][03][BASE64ENCODED 4000 char hard limit][00]
+                 bytes: (5D FF [...] FF [...] FF [..] 00)
+                 notes: PN [UINT32] = packet # 
+
+    REPLIES
+
+    S94. valid, invalid, missing long chat message next packet data
+             packet format: [5E][FF][HEAD 4-BYTE CLIENT MESSAGE ID][FF][PN 01|02|03][RID 01|02|03|04][M 01|02|03|04|05][00]
+                     bytes: (5E FF [...] FF 01|02|03 01|02|03|04 01|02|03|04|05 00)
+                     notes: PN = packet #
+                            01 = missing|02 = invalid|03 = okay
+                            
+                            RID = uniqie room id field
+                            01 = missing|02 = invalid|03 = okay|04 = not authrized
+                        
+                            M = messge body field
+                            01 = missing|02 = invalid|03 = okay|04 = bad base 64 encode|05 = empty                            
+
+    OR
+
+    S95. bad long chat message next packet format
+             packet format: [5F][FF][4-BYTE CLIENT MESSAGE ID][00]
+                     bytes: (5F FF [...] 00)
+     
+    OR
+
+    S96. bad long chat message next packer format
+            packet format: [60][FF]BAD[00]
+                    bytes: (60 FF 42 41 44 00)
+                    notes: this packet is virtually useless, client won't know what message is attached to.
+                           it's just a general... you really messed up sending a packet of this type.
+     
+    POSSIBLE REPLIES
+     
+    S97. resend long chat message next packet
+             packet format: [61][FF][PN 4 bytes][FF][4-BYTE CLIENT MESSAGE ID][00]
+                     bytes: (61 FF [...] FF [...] 00)
+                     notes: PN [UINT32] = packet # 
+
+// --------------------------------------------------
+// long message next from server
+
+U98. long chat message head
+         packet format: [62][FF][TP 4 bytes][FF][16-BYTE UNIQUE ID][FF][8-byte UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
+                 bytes: (62 [FF] [...] FF [...] FF [...] FF [...] 00)
+                 notes: TP [UINT32] = number of remaining packets [1..X]
+
+    REPLIES
+    
+    U99. long chat message head received
+             packet format: [63][FF][FIRST 8-BYTES OF 16-BYTE UNIQUE ID][00]
+                     bytes: (63 FF [...] 00)
+                     
+        REPLIES
+        
+        S100. bad long chat message received reply
+                 packet format: [64][FF][FIRST 8-BYTES OF 16-BYTE UNIQUE ID][00]
+                         bytes: (64 FF 42 41 44 00)
+                         notes: this is only rebounded if for some reason the UNIQUE ID didn't match a known message
+        OR
+        
+        S101. bad long chat message recieved reply
+            packet format: [65][FF]BAD[00]
+                    bytes: (65 FF 42 41 44 00)
+                    notes: this packet is virtually useless, client won't know what message is attached to.
+                           it's just a general... you really messed up sending a packet of this type.
+
+
+    POSSIBLE REPLIES
+
+    U102. resend long chat message next packet
+             packet format: [66][FF][PN 4 bytes][FF][FIRST 8-BYTES OF 16-BYTE UNIQUE ID][00]
+                     bytes: (66 FF [...] FF [...] 00)
+                     notes: PN [UINT32] = packet # 
+
+        REPLIES
+        
+        S103. valid, invalid, missing resend long chat message next packet data
+                 packet format: [67][FF][FIRST 8-BYTES OF 16-BYTE UNIQUE ID][FF][PN 01|02|03][RID 01|02|03|04][M 01|02|03|04|05][A 0|1][00]
+                         bytes: (67 FF [...] FF 01|02|03 01|02|03|04 01|02|03|04|05 00)
+                         notes: PN = packet #
+                                01 = missing|02 = invalid|03 = okay
+                            
+                                RID = unique room id field
+                                01 = missing|02 = invalid|03 = okay|04 = not authrized
+                        
+                                M = messge body field
+                                01 = missing|02 = invalid|03 = okay|04 = bad base 64 encode|05 = empty
+                                
+                                A = some other reason the request might not authorized
+                                00 = not authorized|01 = okay
+
+        OR
+
+        S104. bad resend long chat message next packet format
+                 packet format: [68][FF][PN 4 bytes][FF][FIRST 8-BYTES OF 16-BYTE UNIQUE ID][00]
+                         bytes: (68 FF [...] FF [...] 00)
+                         notes: this is only rebounded if for some reason the request didn't match a known message
+        
+        OR
+        
+        S105. bad resend long chat message next packet format
+                 packet format: [69][FF]BAD[00]
+                         bytes: (69 FF 42 41 44 00)
+                         notes: this packet is virtually useless, client won't know what message is attached to.
+                                it's just a general... you really messed up sending a packet of this type.
+
+!END: LONG MESSAGING PACKETS
+
+R255. used as the delimiter for packet fields
+
+
+
+
+
+
+
+
+
+
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+// PAST THIS POINT IS ALL NOTES...
+// UNFINISHED PACKETS AND THINGS TO BE IMPLEMENTED
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+
+
+
+
+
+
+
+
+
 //
 //need validation for email
 //social/media links optional 
@@ -188,128 +459,8 @@ S9. bad response to original TCP connect query
 // user has gone offline
 // user has come online
 
-!START: MESSAGING PACKETS
-
-16-BYTE UNIQUE ID
-   - 1st 8-bytes of an incremental counter controlled by the server
-   - 2nd 8-bytes follow http://www.w3schools.com/jsref/jsref_gettime.asp
-
-8-BYTE UNIQUE ROOM ID
-   - ROOM ID (00 00 00 00 00 00 00 00) is always used for global message broadcast
-   - incremental room counter to prevent collisions on logs controlled by the server
-
-4-BYTE CLIENT MESSAGE ID
-   - Session only.
-   - Can reset on reconnect.
-   - Must be unique so only one instance of it appears per session.
-        - possibly uint32 counter advised
-
-// --------------------------------------------------
-// short message from user
-
-U80. short chat message
-         packet format: [50][FF][4-BYTE CLIENT MESSAGE ID][FF][8-BYTE UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
-                 bytes: (50 FF [...] FF [...] FF [...] 00)
-
-REPLIES
-
-S81. valid, invalid or missing short chat message packet data
-         packet format: [51][FF][4-BYTE CLIENT MESSAGE ID][FF][RID 01|02|03|04][M 01|02|03|04|05][00]
-                 bytes: (51 FF [...] FF 01|02|03|04 01|02|03|04|05 00)
-                 notes: RID = uniqie room id field
-                        01 = missing|02 = invalid|03 = okay|04 = not authrized
-                        
-                        M = messge body field
-                        01 = missing|02 = invalid|03 = okay|04 = bad base 64 encode|05 = empty
-
-OR
-
-S82. bad short chat message format
-         packet format: [52][FF][4-BYTE CLIENT MESSAGE ID]BAD[00]
-                 bytes: (52 FF 42 41 44 00)
-
-// --------------------------------------------------
-// short message from server
-    
-S83. short chat message
-         packet format: [53][FF][16-BYTE UNIQUE ID][FF][8-BYTE UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
-                 bytes: (53 FF [...] FF [...] FF [...] 00)
-
-// --------------------------------------------------
-// long message from user
-
-U84. long chat message head
-packet format: [54][FF][TP 4 bytes][FF][4-BYTE CLIENT MESSAGE ID][FF][8-byte UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
-        bytes: (54 [FF] [...] FF [...] FF [...] FF [...] 00)
-        NOTES: TP [UINT32] = number of remaning packets [1..X]
-
-U85. long chat message next
-packet format: [55][FF][LCPID 4 bytes][FF][HEAD 4-BYTE CLIENT MESSAGE ID][03][BASE64ENCODED 4000 char hard limit][00]
-        bytes: (55 FF [...] FF [...] FF [..] 00)
-        NOTES: LCPID [UINT32] = packet # within then group of 
-
-REPLIES
-
-S86. resend long chat message next packet
-
-OR
-
-S87. valid, invalid, missing long chat message head packet data
-
-OR
-
-S87. bad long chat message head packet format
-         packet format: [57][FF][4-BYTE CLIENT MESSAGE ID][00]
-                 bytes: (57 FF [...] 00)
-
-OR
-
-S88. valid, invalid, missing long chat message next packet data
-
-OR
-
-S89. bad long chat message next packet format
-         packet format: [59][FF][4-BYTE CLIENT MESSAGE ID][00]
-                 bytes: (59 FF [...] 00)
 
 
-
-// --------------------------------------------------
-// long message from server
-
-U90. long chat message head
-packet format: [54][FF][4 bytes][FF][4-BYTE CLIENT MESSAGE ID][FF][8-byte UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
-        bytes: (54 [FF] [...] FF [...] FF [...] FF [...] 00)
-        NOTES: 4 byte encoded UINT32 marks the number of remaning packets [1..X]
-
-U91. long chat message next
-packet format: [55][FF][XX][FF][HEAD 4-BYTE CLIENT MESSAGE ID][03][BASE64ENCODED 4000 char hard limit][00]
-        bytes: (55 FF XX FF [...] FF [..] 00)
-        NOTES: XX is the packet #
-
-REPLIES
-
-S92. resend long chat message next packet
-
-OR
-
-S93. valid, invalid, missing long chat message head packet data
-
-OR
-
-S94. bad long chat message head packet format
-         packet format: [5E][FF][4-BYTE CLIENT MESSAGE ID]BAD[00]
-                 bytes: (5E FF 42 41 44 00)
-
-OR
-
-S95. valid, invalid, missing long chat message next packet data
-
-OR
-
-S96. bad long chat message next packet format
-         packet format: [60][FF][4-BYTE CLIENT MESSAGE ID][00]
-                 bytes: (60 FF [...] 00)
 
 
 
@@ -325,25 +476,7 @@ S96. bad long chat message next packet format
 !END: MESSAGING PACKETS
 
 
-51. [server] long chat message head
-packet format: [06][FF][4 bytes][FF][16-byte UNIQUE ID][FF][8-byte UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
-        bytes: (06 [FF] [...] FF [...] FF [...] FF [...] 00)
-        NOTES: 4 byte encoded UINT32 marks the number of remaning packets [1..X]
 
-52. [server] long chat message next
-packet format: [07][FF][XX][FF][HEAD pkt 6 16-byte UNIQUE ID][03][BASE64ENCODED 4000 char hard limit][00]
-        bytes: (07 FF XX FF [...] FF [..] 00)
-        NOTES: XX is the packet #
-
-53. [user] resend long chat packet request
-packet format: [08][FF][4 bytes][00]
-        bytes: (08 FF [...] 00)
-        NOTES: 42|4C it will be either/or to mark the endianess of the next 4 byte encoded UINT32
-               this is the number of the packet being requested for resend
-
-54. [server] bad resend long chat packet request
-packet format: [09][FF]BR[00]
-        bytes: (09 FF 42 52 00)
 
 55. [user] move message from room to room
 packet format: [0A][FF][8-byte UNIQUE ROOM ID][FF][16-byte UNIQUE ID][00]
@@ -391,13 +524,14 @@ packet format: 9[03][8-byte UNIQUE ROOM ID][03]U[03][INVITING USERNAME][NULL]
 
 11. create a room
 
-251. [server] packet not supported
-packet format: [FB][FF]PNS[00]
-        bytes: (FB FF 50 4E 53 00)
+S251. packet not supported
+         packet format: [FB][FF][PID 1..254][00]
+                 bytes: (FB FF [...] 00)
+                 notes: PID is the packet ID client tried to either send or query the server for 
 
-252. [user] request list of server supported packets
-packet format: [FC][FF]SP[00]
-        bytes: (FC FF 53 50 00)
+U252. request list of server supported packets
+         packet format: [FC][FF]RLOSSP[00]
+                 bytes: (FC FF 53 50 00)
 
 253. [server] servers supports these packets
 packet format: [FD][FF][XX][...][00]
@@ -410,6 +544,4 @@ packet format: [FE][FF][XX][...][00]
        bytes: (FE FF XX [...] 00)
        NOTES: XX in this case represents a packet the client supports.
               [...] alots that they should follow [FF][XX] for other packets that are supported
-
-255. used as the delimiter for packet fields
 ```
