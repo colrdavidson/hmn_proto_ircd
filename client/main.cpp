@@ -39,13 +39,27 @@ void *get_response(void *arg) {
 }
 
 bool send_message(i32 socket_fd, char *message) {
-	char send_msg[strlen(message) + 1];
+	char send_msg[16 + strlen(message) + 1];
 	memset(send_msg, 0, sizeof(send_msg));
-	sprintf(send_msg, "%s", message);
+	char client_id[5] = "0000";
+	char room_id[9] = "00000000";
+
+	//set up short message
+	message[0] = 0x50;
+	message[1] = 0xFF;
+
+	//4b-client message id
+	sprintf(send_msg + 2, "%s", client_id);
+	message[6] = 0xFF;
+
+	//8b-room id
+	sprintf(send_msg + 7, "%s", room_id);
+	message[16] = 0xFF;
+	sprintf(send_msg + 16, "%s", message);
 
 	printf("sent: %s", send_msg);
 
-	int send_len = send(socket_fd, send_msg, strlen(message) + 1, 0);
+	int send_len = send(socket_fd, send_msg, strlen(send_msg), 0);
 	if (send_len == -1) {
 		printf("Send error!\n");
 		return false;
