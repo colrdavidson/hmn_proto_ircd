@@ -24,7 +24,7 @@ typedef struct response_config {
 void *get_response(void *arg) {
 	i32 socket_fd = ((response_config *)arg)->socket_fd;
 	while (true) {
-		char recv_msg[RX_LEN + 1];
+		u8 recv_msg[RX_LEN + 1];
 
 		int recieve_len = recv(socket_fd, recv_msg, RX_LEN, 0);
 		if (recieve_len == -1) {
@@ -32,7 +32,10 @@ void *get_response(void *arg) {
 			return NULL;
 		}
 
-		printf("FOO: %s", recv_msg);
+		//printf("recieved: %s\n", recv_msg);
+		if (recv_msg[0] == 'T') {
+			printf("recieved: %s\n", recv_msg + 33);
+		}
 		usleep(10);
 	}
 	return NULL;
@@ -57,9 +60,7 @@ bool send_message(i32 socket_fd, char *usr_msg) {
 	send_msg[15] = 0xFF;
 	sprintf(send_msg + 16, "%s", usr_msg);
 
-	printf("sent: %s", send_msg);
-
-	int send_len = send(socket_fd, send_msg, strlen(send_msg), 0);
+	int send_len = send(socket_fd, send_msg, sizeof(send_msg), 0);
 	if (send_len == -1) {
 		printf("Send error!\n");
 		return false;
@@ -81,7 +82,7 @@ int main() {
 		return 2;
 	}
 
-	printf("IP addresses for hmn_proto\n");
+	printf("IP addresses for %s\n", url);
 
 	// parse the addrinfo struct and print the ip4 and ip6 address for the url
 	char ip[INET6_ADDRSTRLEN];
@@ -101,11 +102,15 @@ int main() {
 
 	i32 socket_fd;
 	socket_fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+
+	printf("connecting to %s\n", url);
     status = connect(socket_fd, result->ai_addr, result->ai_addrlen);
 
 	if (status == -1) {
 		printf("connect error!\n");
 		return 2;
+	} else {
+		puts("connected!");
 	}
 
 	response_config response;
@@ -119,6 +124,7 @@ int main() {
 
 	fgets(message, MAX_MSG_LEN, stdin);
 	while (running) {
+		message[strlen(message) - 1] = 0;
 		running = send_message(socket_fd, message);
 		memset(&message, 0, sizeof(message));
 		fgets(message, MAX_MSG_LEN, stdin);
