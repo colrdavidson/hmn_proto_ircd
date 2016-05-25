@@ -32,30 +32,30 @@ void *get_response(void *arg) {
 			return NULL;
 		}
 
-		printf("%s", recv_msg);
+		printf("FOO: %s", recv_msg);
 		usleep(10);
 	}
 	return NULL;
 }
 
-bool send_message(i32 socket_fd, char *message) {
-	char send_msg[16 + strlen(message) + 1];
+bool send_message(i32 socket_fd, char *usr_msg) {
+	char send_msg[16 + strlen(usr_msg) + 1];
 	memset(send_msg, 0, sizeof(send_msg));
 	char client_id[5] = "0000";
 	char room_id[9] = "00000000";
 
 	//set up short message
-	message[0] = 0x50;
-	message[1] = 0xFF;
+	send_msg[0] = 0x50;
+	send_msg[1] = 0xFF;
 
 	//4b-client message id
 	sprintf(send_msg + 2, "%s", client_id);
-	message[6] = 0xFF;
+	send_msg[6] = 0xFF;
 
 	//8b-room id
 	sprintf(send_msg + 7, "%s", room_id);
-	message[16] = 0xFF;
-	sprintf(send_msg + 16, "%s", message);
+	send_msg[15] = 0xFF;
+	sprintf(send_msg + 16, "%s", usr_msg);
 
 	printf("sent: %s", send_msg);
 
@@ -120,6 +120,7 @@ int main() {
 	fgets(message, MAX_MSG_LEN, stdin);
 	while (running) {
 		running = send_message(socket_fd, message);
+		memset(&message, 0, sizeof(message));
 		fgets(message, MAX_MSG_LEN, stdin);
 	}
 
