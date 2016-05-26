@@ -33,7 +33,7 @@ void *get_response(void *arg) {
 		}
 
 		//printf("recieved: %s\n", recv_msg);
-		if (recv_msg[0] == 'T') {
+		if (recv_msg[0] == 'S') {
 			printf("recieved: %s\n", recv_msg + 33);
 		}
 		usleep(10);
@@ -42,6 +42,11 @@ void *get_response(void *arg) {
 }
 
 bool send_message(i32 socket_fd, char *usr_msg) {
+	if (usr_msg == NULL) {
+		printf("blank; no message sent\n");
+		return true;
+	}
+
 	char send_msg[16 + strlen(usr_msg) + 1];
 	memset(send_msg, 0, sizeof(send_msg));
 	char client_id[5] = "0000";
@@ -66,6 +71,55 @@ bool send_message(i32 socket_fd, char *usr_msg) {
 		return false;
 	}
 	return true;
+}
+
+bool register_new_user(i32 socket_fd, char *username, char *password, char *email) {
+	if (username == NULL) {
+		printf("invalid username\n");
+		return true;
+	}
+	if (password == NULL) {
+		printf("invalid password\n");
+		return true;
+	}
+	if (email == NULL) {
+		printf("invalid email\n");
+		return true;
+	}
+
+	char send_msg[5 + strlen(username) + strlen(password) + strlen(email)];
+	memset(send_msg, 0, sizeof(send_msg));
+
+	//setup new user registration
+	send_msg[0] = 0x06;
+	send_msg[1] = 0xFF;
+
+	//fill out message fields
+	int msg_off = 2;
+	sprintf(send_msg + msg_off, "%s", username);
+	msg_off += strlen(username);
+	send_msg[msg_off++] = 0xFF;
+	sprintf(send_msg + msg_off, "%s", password);
+	msg_off += strlen(password);
+	send_msg[msg_off++] = 0xFF;
+	sprintf(send_msg + msg_off, "%s", email);
+	msg_off += strlen(email);
+
+	printf("%s: %lu, %d", send_msg, sizeof(send_msg), msg_off);
+	return true;
+}
+
+bool parse_message(i32 socket_fd, char *message) {
+	char *header = strtok(message, " ");
+
+	if (strcmp(header, "/register") == 0) {
+		char *username = strtok(NULL, " ");
+		char *password = strtok(NULL, " ");
+		char *email = strtok(NULL, " ");
+		return register_new_user(socket_fd, username, password, email);
+	} else {
+		return send_message(socket_fd, message);
+	}
 }
 
 int main() {
@@ -125,7 +179,7 @@ int main() {
 	fgets(message, MAX_MSG_LEN, stdin);
 	while (running) {
 		message[strlen(message) - 1] = 0;
-		running = send_message(socket_fd, message);
+		running = parse_message(socket_fd, message);
 		memset(&message, 0, sizeof(message));
 		fgets(message, MAX_MSG_LEN, stdin);
 	}
