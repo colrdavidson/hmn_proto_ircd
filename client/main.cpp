@@ -12,6 +12,12 @@
 
 #include "platform.h"
 
+#ifdef DEBUG
+#define PACKET_DEBUG(packet_string) printf("%s\n", packet_string);
+#else
+#define PACKET_DEBUG(packet_string)
+#endif
+
 #define url "hmnchat.no-ip.org"
 #define port "6667"
 #define RX_LEN 512
@@ -65,6 +71,7 @@ bool send_message(i32 socket_fd, char *usr_msg) {
 	send_msg[15] = 0xFF;
 	sprintf(send_msg + 16, "%s", usr_msg);
 
+	PACKET_DEBUG(send_msg);
 	int send_len = send(socket_fd, send_msg, sizeof(send_msg), 0);
 	if (send_len == -1) {
 		printf("Send error!\n");
@@ -99,24 +106,48 @@ bool register_new_user(i32 socket_fd, char *username, char *password, char *emai
 	sprintf(send_msg + msg_off, "%s", username);
 	msg_off += strlen(username);
 	send_msg[msg_off++] = 0xFF;
+
 	sprintf(send_msg + msg_off, "%s", password);
 	msg_off += strlen(password);
 	send_msg[msg_off++] = 0xFF;
+
 	sprintf(send_msg + msg_off, "%s", email);
 	msg_off += strlen(email);
 
-	printf("%s: %lu, %d", send_msg, sizeof(send_msg), msg_off);
+	PACKET_DEBUG(send_msg);
+
+	int send_len = send(socket_fd, send_msg, sizeof(send_msg), 0);
+	if (send_len == -1) {
+		printf("Send error!\n");
+		return false;
+	}
 	return true;
 }
 
 bool parse_message(i32 socket_fd, char *message) {
+	if (message == NULL) {
+		return true;
+	}
 	char *header = strtok(message, " ");
 
-	if (strcmp(header, "/register") == 0) {
-		char *username = strtok(NULL, " ");
-		char *password = strtok(NULL, " ");
-		char *email = strtok(NULL, " ");
-		return register_new_user(socket_fd, username, password, email);
+	if (header != NULL && strcmp(header, "/register") == 0) {
+		char *token = strtok(NULL, " ");
+		u8 i = 1;
+		char *tokens[3];
+		tokens[0] = token;
+		while (token != NULL && i < 3) {
+			tokens[i] = strtok(NULL, " ");
+			i++;
+		}
+		if (i < 3) {
+			printf("invalid register command\n");
+			return true;
+		} else {
+			char *username = tokens[0];
+			char *password = tokens[1];
+			char *email = tokens[2];
+			return register_new_user(socket_fd, username, password, email);
+		}
 	} else {
 		return send_message(socket_fd, message);
 	}
@@ -178,7 +209,9 @@ int main() {
 
 	fgets(message, MAX_MSG_LEN, stdin);
 	while (running) {
-		message[strlen(message) - 1] = 0;
+		if (strlen(message) > 0) {
+			message[strlen(message) - 1] = 0;
+		}
 		running = parse_message(socket_fd, message);
 		memset(&message, 0, sizeof(message));
 		fgets(message, MAX_MSG_LEN, stdin);
