@@ -11,7 +11,7 @@
 #define i16 int16_t
 #define i32 int32_t
 #define i64 int64_t
-#define bool u32
+#define f32 float
 #define true 1
 #define false 0
 

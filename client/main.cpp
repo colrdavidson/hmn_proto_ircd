@@ -41,6 +41,8 @@ void *get_response(void *arg) {
 		//printf("recieved: %s\n", recv_msg);
 		if (recv_msg[0] == 'S') {
 			printf("recieved: %s\n", recv_msg + 33);
+		} else {
+			printf("packet: %s\n", recv_msg);
 		}
 		usleep(10);
 	}
