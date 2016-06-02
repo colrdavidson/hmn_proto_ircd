@@ -74,6 +74,44 @@ static CVReturn GlobalDisplayLinkCallback(CVDisplayLinkRef, const CVTimeStamp*, 
 	return self;
 }
 
+GLint loadShader(const char *filename, GLenum shader_type) {
+	FILE *file = fopen(filename, "r");
+	if (!file) {
+		return 0;
+	}
+
+	fseek(file, 0, SEEK_END);
+	u64 length = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	char *shader_source = (char *)malloc(length + 1);
+	shader_source[length] = 0;
+
+	if (!shader_source) {
+		fclose(file);
+		return 0;
+	}
+
+	fread(shader_source, 1, length, file);
+	fclose(file);
+
+	GLint shader = glCreateShader(shader_type);
+	glShaderSource(shader, 1, &shader_source, NULL);
+
+	GLint compile_success = GL_FALSE;
+	glCompileShader(shader);
+
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_success);
+	if (!compile_success && shader_type == GL_VERTEX_SHADER) {
+		printf("Vertex Shader error!\n");
+		return 0;
+	} else if (!compile_success && shader_type == GL_FRAGMENT_SHADER) {
+		printf("Fragment Shader error!\n");
+		return 0;
+	}
+
+	return shader;
+}
+
 - (void) prepareOpenGL {
 	[super prepareOpenGL];
 
@@ -119,42 +157,8 @@ static CVReturn GlobalDisplayLinkCallback(CVDisplayLinkRef, const CVTimeStamp*, 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-	GLint compile_success = GL_FALSE;
-	const char *vert_source =
-	"	#version 150\n"
-	"	in vec2 coords;"
-
-	"	void main() {"
-	"		gl_Position = vec4(coords, 0.0, 1.0);"
-	"	}";
-
-	const char *frag_source =
-	"	#version 150\n"
-	"	out vec4 frag_color;"
-
-	"	void main() {"
-	"		frag_color = vec4(0.5, 0.0, 0.5, 1.0);"
-	"	}";
-
-	GLint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-	GLint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(vert_shader, 1, &vert_source, NULL);
-	glShaderSource(frag_shader, 1, &frag_source, NULL);
-
-	glCompileShader(vert_shader);
-	glCompileShader(frag_shader);
-
-	glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &compile_success);
-	if (!compile_success) {
-		printf("Vertex Shader error!\n");
-		return;
-	}
-
-	glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &compile_success);
-	if (!compile_success) {
-		printf("Frag Shader error!\n");
-		return;
-	}
+	GLint vert_shader = loadShader("vert.vs", GL_VERTEX_SHADER);
+	GLint frag_shader = loadShader("frag.fs", GL_FRAGMENT_SHADER);
 
 	shader_program = glCreateProgram();
 	glAttachShader(shader_program, vert_shader);
