@@ -99,6 +99,7 @@ GLint loadShader(const char *filename, GLenum shader_type) {
 
 	GLint compile_success = GL_FALSE;
 	glCompileShader(shader);
+	free(shader_source);
 
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_success);
 	if (!compile_success && shader_type == GL_VERTEX_SHADER) {
