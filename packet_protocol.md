@@ -13,9 +13,24 @@ R0. reserved - used as end of packet marker [00]
 
 !START: ON TCP SOCKET CONNECT SERVER QUERIES WITH
 
-S1. request for username/password
-        packet format: [01][FF]UP[00]
-                bytes: (01 FF 55 50 00)
+Enumerator Return Values for Server Responses
+
+01 = empty field
+02 = invalid
+03 = okay
+04 = bad base 64 encode
+05 = unchecked
+06 = already validated
+07 = already in use
+08 = not authorized
+09 = not in that room
+10 = already in that room
+11 = empty message
+12 = message body too long
+
+S1. send guest/temporary username to client
+        packet format: [01][FF][GUEST/TEMPORARY USERNAME][00]
+                bytes: (01 FF ... 00)
 
 EXPECTS
 
@@ -26,7 +41,7 @@ U2. username/password and client endianess response
         packet format: [02][FF][USERNAME][FF][BASE64ENCODED PASSWORD][FF][E 01|02][00]
                 bytes: (02 FF [...] FF [...] FF 42|4C 00)
                 notes: E = endianness field
-                       01 = little|02 = big
+                       possible values [01 = little|02 = big]
 
     REPLIES
 
@@ -34,16 +49,17 @@ U2. username/password and client endianess response
             packet format: [03][FF][U 01|02|03][P 01|02|03][E 01|02|03][00]
                     bytes: (03 FF 01|02|03 01|02|03 01|02|03 00)
                     notes: U = username field
-                           01 = missing|02 = invalid|03 = okay
+                           possible values [01 = empty field|02 = invalid|03 = okay|06 = already validated]
                            
                            P = password field (base64 ecoding required)
-                           01 = missing|02 = invalid|03 = okay|04 = bad base 64 encode
+                           possible values [01 = empty field|02 = invalid|03 = okay|05 = unchecked]
                            
                            E = endianness field
-                           01 = missing|02 = invalid|03 = okay
-
+                           possible values [01 = empty field|02 = invalid|03 = okay|05 = unchecked]
+                           
                  examples: (03 FF 03 03 03 00) = authenticated
-                           (03 FF 03 02 01 00) = username good, password invalid, endianess is missing
+                           (03 FF 01 05 03 00) = username empty, password unchecked, endianess is good
+                           (03 FF 06 05 05 00) = user already validated, password unchecked, endianess unchecked
     OR
 
     S4. bad username/password/endianess packet format
@@ -72,16 +88,16 @@ packet format: [06][FF][USERNAME][FF][BASE64ENCODED PASSWORD][FF][EMAIL][00]
             packet format: [07][FF][U 01|02|03|04][P 01|02|03|04][FF][E 01|02|03][00]
                     bytes: (07 FF 01|02|03|04 01|02|03 00)
                     notes: U = username field
-                           01 = missing|02 = invalid|03 = okay|04 = taken
+                           possible values: [01 = empty field|02 = invalid|03 = okay|07 = already in use]
 
                            P = password field (base64 ecoding required)
-                           01 = missing|02 = invalid|03 = okay|04 = bad base 64 encode
+                           possible values: [01 = empty field|02 = invalid|03 = okay|04 = bad base 64 encode|05 = unchecked]
                            
                            E = email field
-                           01 = missing|02 = invalid|03 = okay
+                           possible values: [01 = empty field|02 = invalid|03 = okay|05 = unchecked]
                            
                  examples: (03 FF 03 03 03 00) = user successfully registered [counted as authenticated by the server automatically]
-                           (03 FF 04 02 03 00) = username already in use, password invalid, email valid
+                           (03 FF 07 05 05 00) = username already in use, password unchecked, email unchecked
                            
               server duty: on valid, server needs to send an email containing a validation to the supplied mail account
 
@@ -104,7 +120,18 @@ S9. bad response to original TCP connect query
 !END: ON TCP SOCKET CONNECT SERVER QUERIES WITH
 
 //----------------------------------------------------
-//PACKETS 10-79 are reserved...
+//PACKETS 10-39 are reserved...
+//to sort out the rest of this missing user packets
+//----------------------------------------------------
+
+U40. log off server
+        packet format [28][FF]BYE[00]
+                bytes: (28 FF 42 59 45 00)
+                notes: server will close connection cleanly
+                       connections should attempt to use this whenever possible
+                       
+//----------------------------------------------------
+//PACKETS 41-79 are reserved...
 //to sort out the rest of this missing user packets
 //----------------------------------------------------
 
@@ -131,19 +158,19 @@ S9. bad response to original TCP connect query
 // short message from user
 
 U80. short chat message
-         packet format: [50][FF][4-BYTE CLIENT MESSAGE ID][FF][8-BYTE UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
+         packet format: [50][FF][4-BYTE CLIENT MESSAGE ID][FF][8-BYTE UNIQUE ROOM ID][FF][MESSAGE BASE64ENCODED 4000 BYTE MAX][00]
                  bytes: (50 FF [...] FF [...] FF [...] 00)
 
     REPLIES
 
     S81. valid, invalid or missing short chat message packet data
-             packet format: [51][FF][4-BYTE CLIENT MESSAGE ID][FF][RID 01|02|03|04][M 01|02|03|04|05][00]
-                     bytes: (51 FF [...] FF 01|02|03|04 01|02|03|04|05 00)
-                     notes: RID = uniqie room id field
-                            01 = missing|02 = invalid|03 = okay|04 = not authrized
+             packet format: [51][FF][4-BYTE CLIENT MESSAGE ID][FF][RID 01|02|03|08|09][M 01|03|04|11|121][00]
+                     bytes: (51 FF [...] FF 01|02|03|08|09 01|03|04|11|12 00)
+                     notes: RID = unique room id field
+                            possible values: [01 = empty field|02 = invalid|03 = okay|08 = not authrized|09 = not in that room]
                         
                             M = messge body field
-                            01 = missing|02 = invalid|03 = okay|04 = bad base 64 encode|05 = empty
+                            possible values: [01 = empty field|03 = okay|04 = bad base 64 encode|11 = empty message|12 = message body too long]
 
     OR
     
@@ -158,9 +185,10 @@ U80. short chat message
 // short message from server
     
 S83. short chat message
-         packet format: [53][FF][16-BYTE UNIQUE ID][FF][8-BYTE UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
-                 bytes: (53 FF [...] FF [...] FF [...] 00)
-
+         packet format: [53][FF][16-BYTE UNIQUE ID][FF][8-BYTE UNIQUE ROOM ID][FF][USERNAME][FF][ALIAS][FF][MESSAGE BASE64ENCODED 4000 BYTE MAX][00]
+                 bytes: (53 FF [...] FF [...] FF [...] FF [...] FF [...] 00)
+                 notes: [ALIAS] can be a blank field.
+                 
     REPLIES
     
     U84. short chat message received
@@ -230,7 +258,7 @@ U87. long chat message head
 // long message next from user
 
 U91. long chat message next
-         packet format: [5B][FF][PN 4 bytes][FF][HEAD 4-BYTE CLIENT MESSAGE ID][03][BASE64ENCODED 4000 char hard limit][00]
+         packet format: [5B][FF][PN 4 bytes][FF][HEAD 4-BYTE CLIENT MESSAGE ID][FF][MESSAGE BASE64ENCODED 4000 BYTE MAX][00]
                  bytes: (5B FF [...] FF [...] FF [..] 00)
                  notes: PN [UINT32] = packet # 
 
@@ -267,7 +295,7 @@ U91. long chat message next
 // long message next from server
 
 U95. long chat message head
-         packet format: [5F][FF][TP 4 bytes][FF][16-BYTE UNIQUE ID][FF][8-byte UNIQUE ROOM ID][FF][BASE64ENCODED 4000 BYTE MAX][00]
+         packet format: [5F][FF][TP 4-BYTE][FF][16-BYTE UNIQUE ID][FF][8-BYTE UNIQUE ROOM ID][FF][MESSAGE BASE64ENCODED 4000 BYTE MAX][00]
                  bytes: (5F [FF] [...] FF [...] FF [...] FF [...] 00)
                  notes: TP [UINT32] = number of remaining packets [1..X]
 
@@ -337,12 +365,77 @@ U95. long chat message head
 !END: LONG MESSAGING PACKETS
 
 
+//----------------------------------------------------
+//PACKETS 103-159 are reserved...
+//to sort out the rest of this missing messaging packets
+//----------------------------------------------------
+
+U160. join room
+        packet format: [A0][FF][8-BYTE UNIQUE ROOM ID][FF][BASE64ENCODED PASSWORD][00]
+                bytes: (A0 FF [..] FF [..] 00)
+                notes: when joining a room you can leave the password blank
+                       this field is ownly needed for rooms that are password protected
+        
+        REPLIES:
+                       
+        S161. valid, invalid join room request
+                packet format: [A1][FF][8-BYTE UNIQUE ROOM ID][FF][RID 01|02|03|08|09|10][00]
+                        bytes: (A1 FF [...] FF 01|02|03|08|09|10 00)
+                        notes: RID = unique room id field
+                               possible values: [01 = empty field|02 = invalid|03 = okay|08 = not authrized|09 = not in that room|10 = already in that room]
+
+        AND [IF JOIN VALID]
+                
+        S162. user joined room
+                packet format: [A2][FF][8-BYTE UNIQUE ROOM ID][FF][USERNAME][FF][ALIAS][00]
+                        bytes: (A2 FF [...] FF [...] FF [...] 00)
+                        
+        
+U163. part room
+        packet format: [A3][FF][8-BYTE UNIQUE ROOM ID][FF][PART MESSAGE][00]
+                bytes: (A3 FF [..] 00)
+        
+        REPLIES:
+                       
+        S164. valid, invalid part room request
+                packet format: [A4][FF][8-BYTE UNIQUE ROOM ID][FF][RID 01|02|03|09][00]
+                        bytes: (A4 FF [...] FF 01|02|03|09 00)
+                        notes: RID = unique room id field
+                               possible values: [01 = empty field|02 = invalid|03 = okay|09 = not in that room]
+
+        AND [IF PART VALID]
+                
+        S165. user parted room
+                packet format: [A5][FF][8-BYTE UNIQUE ROOM ID][FF][USERNAME][FF][ALIAS][00]
+                        bytes: (A2 FF [...] FF [...] FF [...] 00)
+
+U166. change user alias
+        packet format: [A6][FF][NEW ALIAS][00]
+                bytes: (A6 FF [...] 00)
+                notes: this is handled per socket, not by user as multi-endpoint can cause confusion
+                       so each socket endpoint within a user can have seperate aliases.
+                       this won't matter if single endpoint is configured on the server.
+                       
+        REPLIES:
+        
+        S167. valid, invalid request to change user alias
+                packet format: [A7][FF][ALIAS 01|02|03|07][00]
+                        bytes: (A7 FF 01|02|03|07 00)
+                        notes: ALIAS = return code associated with the request to change user alias
+                               possible values: [01 = empty field|02 = invalid|03 = okay|07 = already in use]
+                               
+        AND [IF CHANGE ALIAS VALID]
+        
+        S168. update user alias
+                packet format: [A8][FF][USERNAME][FF][OLD ALIAS][FF][NEW ALIAS][00]
+                        bytes: (A8 FF [...] FF [...] FF [...] 00)
 
 
-
-
-
-
+U169. invite user to room
+        packet format: [A9][FF][8-BYTE UNIQUE ROOM ID][FF][USERNAME][FF][ALIAS][00]
+                bytes: (A9 FF [...] FF [...] FF [...] 00)
+                notes: if alias is left blank then all endpoints associated with username should be sent the invite
+                       or if alias is specififed, o
 
 
 //--------------------------------------------------------------
@@ -465,33 +558,11 @@ U95. long chat message head
 packet format: [0A][FF][8-byte UNIQUE ROOM ID][FF][16-byte UNIQUE ID][00]
         bytes: (0A FF [...] [FF] [...] 00)
 
-56. held for other message features
-57. held for other message features
-58. held for other message features
-59. held for other message features
-
-20. [user] create room
-packet format: [14][FF]CR[NULL]
-        bytes: (14 FF 
-
-21. [server] not authorized to create a room
-packet format : [15][FF][8-byte UNIQUE ROOM ID][FF][PASSWORD][NULL]
-
-
 22. [server] room created
 packet format: [16][FF][8-byte UNIQUE ROOM ID][00]
         bytes: (16 FF [...] 00)
         NOTES: user should be informed they need to configure the room before others can join it.
 
-
-
-22. [user] join a room
-packet format : [16][FF][8-byte UNIQUE ROOM ID][FF][PASSWORD][NULL]
-
-23. [server] not authorized to join that room
-
-24. [server] user joined a room
-packet format : 
 
 24. [user] configure room settings
 
@@ -500,12 +571,6 @@ packet format :
 24. [user] leave a room
 packet format : [15][FF][8-byte UNIQUE ROOM ID]
 
-
-
-10. invite a user to a room
-packet format: 9[03][8-byte UNIQUE ROOM ID][03]U[03][INVITING USERNAME][NULL]
-
-11. create a room
 
 251. [server] packet not supported
 packet format: [FB][FF]PNS[00]
