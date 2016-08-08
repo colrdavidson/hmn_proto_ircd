@@ -28,6 +28,8 @@ Enumerator Return Values for Server Responses
 13 = existing long message pending
 14 = bad user
 15 = auto-rejected
+16 = already friend
+17 = friend list full
 
 S1. send guest/temporary username to client
         packet format: [01]
@@ -51,13 +53,20 @@ U2. username/password and client endianess response
                        [FF]
                        [BASE64 ENCODED PASSWORD]
                        [FF]
-                       [E B|L][00]
+                       [E B|L]
+                       [TO T|F]                       
+                       [00]
                        
-                bytes: (02 FF [..] FF [..] FF [..] FF 42|4C 00)
+                bytes: (02 FF [..] FF [..] FF [..] FF 42|4C 54|46 00)
+                
                 notes: E = endianness field
                        possible values: L = little
                                         B = big
-
+						
+					   TO = strip markdown to this endpoint
+					   possible values: T = true
+					                    F = false
+					                    
     REPLIES
 
     S3. valid, invalid or missing username/password/endianess
@@ -72,6 +81,7 @@ U2. username/password and client endianess response
                            [00]
                            
                     bytes: (03 FF 01|02|03|06 01|02|03|05 01|02|03|05 00)
+                    
                     notes: U = username field
                            possible values: 01 = empty field
                                             02 = invalid
@@ -137,6 +147,7 @@ U6. register new user
                        [00]
                
                 bytes: (06 FF [..] FF [..] FF [..] 00)
+                
                 notes: EMAIL = required for password reset...
 
 	REPLIES
@@ -150,6 +161,7 @@ U6. register new user
                            [00]
                            
                     bytes: (07 FF 01|02|03|07 01|02|03|04|05 01|02|03|05 00)
+                
                     notes: U = username field
                            possible values: 01 = empty field
                                             02 = invalid
@@ -211,6 +223,7 @@ U9. change user alias
                            [00]
                                
                     bytes: (0A FF 01|02|03|07 00)
+                    
                     notes: A = return code associated with the request to change user alias
                            possible values: 01 = empty field
                                             02 = invalid
@@ -343,10 +356,143 @@ S20. set away status
                 
                 notes: [BASE64 ENCODED 64-BYTE MAX AWAY MESSAGE] can be empty
 
+// --------------------------------------------------
+// set user back status from user
+
+U21. set user back status
+		packet format: [15]
+				       [00]
+				       
+				bytes: (15 00)
+				
+// --------------------------------------------------
+// set user back status from server
+				
+S22. set user back status
+		packet format: [16]
+					   [FF]
+					   [8-BYTE SOCKET ID]
+					   [00]
+
+				bytes: (16 FF [..] 00)
+
+// --------------------------------------------------
+// set reject friend requests from user
+
+U23. set reject friend requests
+		packet format: [17]
+				       [00]
+
+			 	bytes: (17 00)
+
+// --------------------------------------------------
+// set accept friend requests from user
+
+U24. set accept friend requests
+		packet format: [18]
+				       [00]
+
+			 	bytes: (18 00)
+
+// --------------------------------------------------
+// add friend from user
+
+U25. add friend
+		packet format: [19]
+					   [FF]
+					   [4-BYTE CLIENT ID]
+					   [FF]
+					   [8-BYTE SOCKET ID]
+					   [00]
+					   
+				bytes: (19 FF [..] FF [..] 00)
+	
+	REPLIES
+	
+	S26. valid, invalid request for add friend format
+			packet format: [20]
+						   [FF]
+						   [4-BYTE CLIENT ID]
+						   [FF]
+						   [U 01|02|03|16|17]
+						   
+					bytes: (20 FF [..] FF 01|02|03|16|17)
+					
+					notes: U = user socket field
+						   possible values: 01 = empty field
+						                    02 = invalid
+						                    03 = okay
+						                    15 = auto-rejected
+						                    16 = already friended
+						                    17 = friend list full
+						  
+	OR
+	
+	S27. bad add friend request packet format
+			packet format: [21]
+                           [FF]
+                           BAD
+                           [00]
+                           
+                    bytes: (21 FF 42 41 44 00)
+
+// --------------------------------------------------
+// add friend from server
+
+S28. user requesting friendship
+		packet format: [22]
+					   [FF]
+					   [8-BYTE SOCKET ID]
+					   [00]
+					   
+			    bytes: (22 FF [..] 00)
+
+// --------------------------------------------------
+// accept pending friend request from user
+
+U29. accept pending friend request
+		packet format: [23]
+					   [FF]
+					   [4-BYTE CLIENT ID]
+					   [FF]
+					   [8-BYTE SOCKET ID]
+					   [00]
+					   
+			    bytes: (23 FF [..] FF [..] 00)
+
+	REPLIES
+	
+	S30. valid, invalid request for accept pending friend format
+			packet format: [24]
+						   [FF]
+						   [4-BYTE CLIENT ID]
+						   [FF]
+						   [U 01|02|03|16|17]
+						   
+					bytes: (24 FF [..] FF 01|02|03|16|17)
+					
+					notes: U = user socket field
+						   possible values: 01 = empty field
+						                    02 = invalid
+						                    03 = okay
+						                    15 = auto-rejected
+						                    16 = already friended
+						                    17 = friend list full
+						  
+	OR
+	
+	S31. bad accept pending friend request packet format
+			packet format: [25]
+                           [FF]
+                           BAD
+                           [00]
+                           
+                    bytes: (25 FF 42 41 44 00)
+
 !END: USER INFORMATION/UPDATE PACKETS
 
 //----------------------------------------------------
-//PACKETS 17-39 are reserved...
+//PACKETS 28-39 are reserved...
 //to sort out the rest of this missing user packets
 //----------------------------------------------------
 
@@ -358,6 +504,7 @@ U40. log off server
                        [00]
                       
                 bytes: (28 00)
+                
                 notes: server will close connection cleanly
                        connections should attempt to use this whenever possible
 
@@ -425,6 +572,7 @@ U80. short chat message
                             [00]
                             
                      bytes: (51 FF [..] FF 01|02|03|09 01|03|04|11|12 00)
+                     
                      notes: RID = unique room id field
                             possible values: 01 = empty field
                                              02 = invalid
@@ -447,6 +595,7 @@ U80. short chat message
                            [00]
                            
                     bytes: (52 FF 42 41 44 00)
+                    
                     notes: this packet is virtually useless, client won't know
                            what message is attached to. it's just a general...
                            you really messed up sending a packet of this type.
@@ -490,6 +639,7 @@ S83. short chat message
                                 [00]
                                                                 
                          bytes: (55 FF [..] 00)
+                         
                          notes: only used if reply didn't match a valid message
                                 on ack. debug packet only.                       
                          
@@ -502,6 +652,7 @@ S83. short chat message
                                 [00]
                                 
                          bytes: (56 FF 42 41 44 00)
+                         
                          notes: this packet is virtually useless, client won't
                                 know what message is attached to. it's just a
                                 general... you really messed up sending a packet
@@ -527,6 +678,7 @@ U87. long chat message head
                         [00]
                         
                  bytes: (57 [FF] [..] FF [..] FF [..] FF [..] 00)
+                 
                  notes: TP [UINT32] = number of remaining packets [1..X]
 
     REPLIES
@@ -543,6 +695,7 @@ U87. long chat message head
                             [00]
                             
                      bytes: (58 FF [..] FF 01|02|03|05 03|13 01|02|03|04|05|09 01|03|04|05|11|12 00)
+                     
                      notes: TP = number of remaning packets field
                             possible values: 01 = empty field
                                              02 = invalid
@@ -597,6 +750,7 @@ U90. long chat message next
                         [00]
                         
                  bytes: (5A FF [..] FF [..] FF [..] FF [..] 00)
+                 
                  notes: PN [UINT32] = packet # 
 
     REPLIES
@@ -613,6 +767,7 @@ U90. long chat message next
                             [00]
                             
                      bytes: (5B FF [..] FF 01|02|03 03|13 01|02|03|09 01|03|04|11|12 00)
+                     
                      notes: PN = packet #
                             possible values: 01 = missing
                                              02 = invalid
@@ -644,6 +799,7 @@ U90. long chat message next
                            [00]
                            
                     bytes: (5D FF 42 41 44 00)
+                    
                     notes: this packet is virtually useless, client won't know
                            what message is attached to. it's just a general...
                            you really messed up sending a packet of this type.
@@ -679,6 +835,7 @@ S94. long chat message head
                         [00]
                         
                  bytes: (5E [FF] [..] FF [..] FF [..] FF [..] FF [..] FF [..] 00)
+                 
                  notes: TP [UINT32] = number of remaining packets [1..X]
 
     POSSIBLE REPLIES [THESE ARE NOT MANDATORY RESPONSES FROM THE USER]
@@ -704,6 +861,7 @@ S94. long chat message head
                                 [00]
                                 
                          bytes: (60 FF [..] FF [..] 00)
+                         
                          notes: only used if reply didn't match a valid message
                                 on ack. debug packet only.
                                 
@@ -716,6 +874,7 @@ S94. long chat message head
                         	   [00]
                            
                     	bytes: (61 FF 42 41 44 00)
+                    	
                     	notes: this packet is virtually useless, client won't know
                         	   what message is attached to. it's just a general...
                            	   you really messed up sending a packet of this type.
@@ -736,6 +895,7 @@ S98. long chat message next
                         [00]
                         
                  bytes: (62 FF [..] FF [..] FF [..] FF [..] 00)
+                 
                  notes: PN [UINT32] = packet # 
 
 POSSIBLE REPLIES
@@ -751,6 +911,7 @@ U99. resend long chat message next packet
                         [00]
                             
                  bytes: (63 FF [..] FF [..] FF [..] 00)
+                 
                  notes: PN [UINT32] = packet # 
 
     REPLIES
@@ -766,6 +927,7 @@ U99. resend long chat message next packet
                             [00]
                                 
                      bytes: (64 FF [..] FF 01|02|03 01|02|03|08|09 01|02|03 00)
+                     
                      notes: PN = packet #
                             possible values: 01 = empty field
                                              02 = invalid
@@ -796,6 +958,7 @@ U99. resend long chat message next packet
                             [00]
                                 
                      bytes: (65 FF [..] FF [..] FF [..] 00)
+                     
                      notes: only used if reply didn't match a valid message
                             on ack. debug packet only. 
         
@@ -808,6 +971,7 @@ U99. resend long chat message next packet
                             [00]
                                 
                      bytes: (66 FF 42 41 44 00)
+                     
                      notes: this packet is virtually useless, client won't
                             know what message is attached to. it's just a
                             general... you really messed up sending a packet
@@ -834,6 +998,7 @@ U160. join room
                        [00]
                        
                 bytes: (A0 FF [..] FF [..] 00)
+                
                 notes: when joining a room you can leave the password blank
                        this field is only needed for rooms that are password
                        protected.
@@ -855,6 +1020,7 @@ U160. join room
                            [00]
                                
                     bytes: (A1 FF [..] FF 01|02|03|08|09|10 00)
+                    
                     notes: RID = unique room id field
                            possible values: 01 = empty field
                                             02 = invalid
@@ -872,6 +1038,7 @@ U160. join room
                            [00]
                                 
                     bytes: (A2 FF 42 41 44 00)
+                    
                     notes: this packet is virtually useless, client won't know
                            what message is attached to. it's just a general...
                            you really messed up sending a packet of this type.
@@ -918,6 +1085,7 @@ U164. part room
                            [00]
                                
                     bytes: (A5 FF [..] FF 01|02|03|09 00)
+                    
                     notes: RID = unique room id field
                            possible values: 01 = empty field
                                             02 = invalid
@@ -940,6 +1108,7 @@ U164. part room
                            [00]
                                 
                     bytes: (A6 FF 42 41 44 00)
+                    
                     notes: this packet is virtually useless, client won't know
                            what message is attached to. it's just a general...
                            you really messed up sending a packet of this type.
@@ -975,6 +1144,7 @@ U168. invite user to room
                        [00]
                        
                 bytes: (A8 FF [..] FF [..] FF [..] 00)
+                
                 notes: Only [USERNAME] or [8-BYTE SOCKET KEY] need to be
                        supplied.
                        
@@ -995,6 +1165,7 @@ U168. invite user to room
                            [00]
                                
                     bytes: (A9 FF [..] FF 01|02|03|08|09 01|02|03|14|15 00)
+                    
                     notes: RID = unique room id field
                            possible values: 01 = empty field
                                             02 = invalid
@@ -1016,6 +1187,7 @@ U168. invite user to room
 				           [00]
 				               
 		            bytes: (AA FF 42 41 44 00)
+                    
                     notes: this packet is virtually useless, client won't know
                            what message is attached to. it's just a general...
                            you really messed up sending a packet of this type.
@@ -1034,7 +1206,8 @@ S171. invite user to room
                        [00]
                        
                 bytes: (AB FF [..] FF [..] FF [..] FF [..] 00)
-                NOTES: [BASE64 ENCODED PASSWORD] can be empty
+                
+                notes: [BASE64 ENCODED PASSWORD] can be empty
           
 !END: ROOM ACCESS JOIN, PART AND INVITE
 
@@ -1065,6 +1238,8 @@ S173. send room settings/details
 					   [BASE64 ENCODED 256-BYTE MAX TITLE]
 					   [FF]
 					   [BASE64 ENCODED 512-BYTE MAX DESCRIPTION]
+					   [FF]
+					   [BASE64 ENCODED 512-BYTE MAX MOTD]
 					   [FF]
 					   [ROOM CREATED 8-BYTE TIMESTAMP]					   
 					   [FF]
@@ -1134,7 +1309,13 @@ S174. send user list
                        [FF]
                        [A T|F]
                        [FF]
-                       [BASE64 ENCODED 64-BYTE MAX AWAY MESSAGE]                                              
+                       [BASE64 ENCODED 64-BYTE MAX AWAY MESSAGE]
+                       [FF]
+                       [AVATAR FILENAME SMALL]
+                       [FF]
+                       [AVATAR FILENAME LARGE]                                                                    
+                       
+                       
                        [??]
                        
                        [00]
@@ -1160,6 +1341,30 @@ S174. send user list
                               no unique packet number system with these as the order doesn't matter.
 
 !END: ROOM ACCESS, ADMIN AND OTHER CONTROL PACKETS
+
+!START: MARKDOWN INFORMATION PACKETS
+
+// --------------------------------------------------
+// request for supported markdown from user
+
+U240. request list of supported markdown tags
+		packet format: [F0]
+					   [00]
+					   
+// --------------------------------------------------
+// supported markdown from server
+
+S241. supported markdown
+		packet format: [F1]
+					   [FF]
+					   [BASE64 ENCODED 16-BYTE MAX HEAD MARKER]
+					   [FF]
+					   [BASE64 ENCODED 16-BYTE MAX TAIL MARKER]
+					   [FF]
+					   [BASE64 ENCODED 128-BYTE MARKDOWN TIP]
+					   [00]
+
+!END: MARKDOWN INFORMATION PACKETS
 
 
 
@@ -1319,15 +1524,6 @@ isPunished
 //        bytes: (12 FF 55 55 00)
 // user has gone offline
 // user has come online
-
-
-
-
-
-
-
-
-
 
 55. [user] move message from room to room
 packet format: [0A][FF][8-byte UNIQUE ROOM ID][FF][16-byte UNIQUE ID][00]
