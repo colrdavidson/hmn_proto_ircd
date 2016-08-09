@@ -402,7 +402,7 @@ U25. add friend
 					   [FF]
 					   [4-BYTE CLIENT ID]
 					   [FF]
-					   [8-BYTE SOCKET ID]
+					   [USERNAME]
 					   [00]
 					   
 				bytes: (19 FF [..] FF [..] 00)
@@ -410,15 +410,15 @@ U25. add friend
 	REPLIES
 	
 	S26. valid, invalid request for add friend format
-			packet format: [20]
+			packet format: [1A]
 						   [FF]
 						   [4-BYTE CLIENT ID]
 						   [FF]
 						   [U 01|02|03|16|17]
 						   
-					bytes: (20 FF [..] FF 01|02|03|16|17)
+					bytes: (1A FF [..] FF 01|02|03|16|17)
 					
-					notes: U = user socket field
+					notes: U = username field
 						   possible values: 01 = empty field
 						                    02 = invalid
 						                    03 = okay
@@ -429,47 +429,47 @@ U25. add friend
 	OR
 	
 	S27. bad add friend request packet format
-			packet format: [21]
+			packet format: [1B]
                            [FF]
                            BAD
                            [00]
                            
-                    bytes: (21 FF 42 41 44 00)
+                    bytes: (1B FF 42 41 44 00)
 
 // --------------------------------------------------
 // add friend from server
 
 S28. user requesting friendship
-		packet format: [22]
+		packet format: [1C]
 					   [FF]
-					   [8-BYTE SOCKET ID]
+					   [USERNAME]
 					   [00]
 					   
-			    bytes: (22 FF [..] 00)
+			    bytes: (1C FF [..] 00)
 
 // --------------------------------------------------
 // accept pending friend request from user
 
 U29. accept pending friend request
-		packet format: [23]
+		packet format: [1D]
 					   [FF]
 					   [4-BYTE CLIENT ID]
 					   [FF]
-					   [8-BYTE SOCKET ID]
+					   [USERNAME]
 					   [00]
 					   
-			    bytes: (23 FF [..] FF [..] 00)
+			    bytes: (1D FF [..] FF [..] 00)
 
 	REPLIES
 	
 	S30. valid, invalid request for accept pending friend format
-			packet format: [24]
+			packet format: [1E]
 						   [FF]
 						   [4-BYTE CLIENT ID]
 						   [FF]
 						   [U 01|02|03|16|17]
 						   
-					bytes: (24 FF [..] FF 01|02|03|16|17)
+					bytes: (1E FF [..] FF 01|02|03|16|17)
 					
 					notes: U = user socket field
 						   possible values: 01 = empty field
@@ -482,28 +482,252 @@ U29. accept pending friend request
 	OR
 	
 	S31. bad accept pending friend request packet format
-			packet format: [25]
+			packet format: [1F]
                            [FF]
                            BAD
                            [00]
                            
-                    bytes: (25 FF 42 41 44 00)
+                    bytes: (1F FF 42 41 44 00)
+
+// --------------------------------------------------
+// pending friend request accepted from server
+
+S32. pending friend request accepted
+		packet format: [20]
+				       [FF]
+				       [USERNAME]
+				       [00]
+				       
+				bytes: (20 FF [..] 00)
+			
+// --------------------------------------------------
+// remove friend from user
+
+U33. remove friend
+		packet format: [21]
+					   [FF]
+					   [4-BYTE CLIENT ID]
+					   [FF]
+					   [USERNAME]
+					   [00]
+					   
+				bytes: (21 FF [..] FF [..] 00)
+					   
+	REPLIES
+	
+	S34. valid, invalid request for remove friend format
+			packet format: [22]
+			               [FF]
+			               [4-BYTE CLIENT ID]
+			               [FF]
+			               [U 01|02|03]
+			               [00]
+			               
+			        bytes: (22 FF [..] FF 01|02|03 00)
+			        
+			        notes: U = username field
+			        	   possible values: 01 = empty field
+			        	                    02 = invalid
+			        	                    03 = okay			        	                    
+	
+	OR
+	
+	S35. bad accept pending friend request packet format
+			packet format: [23]
+                           [FF]
+                           BAD
+                           [00]
+                           
+                    bytes: (23 FF 42 41 44 00)
+
+// --------------------------------------------------
+// remove friend from server
+
+S36. user unfriended you
+		packet format: [24]
+					   [FF]
+					   [USERNAME]
+					   [00]
+					   
+				bytes: (24 FF [..] 00)
+
+// --------------------------------------------------
+// mute user from user
+
+U37. mute user
+		packet format: [25]
+				       [FF]
+				       [4-BYTE CLIENT ID]
+				       [FF]
+				       [USERNAME]
+				       [00]
+				       
+			    bytes: (25 FF [..] FF [..] 00)
+
+	REPLIES
+	
+	S38. valid, invalid request for mute user format
+			packet format: [26]
+						   [FF]
+						   [4-BYTE CLIENT ID]
+						   [FF]
+						   [U 01|02|03]
+						   
+					bytes: (26 FF [..] FF 01|02|03)
+					
+					notes: U = username field
+						   possible values: 01 = empty field
+						   				    02 = invalid
+						   				    03 = okay
+		
+	OR
+	
+	S39. bad mute user packet format
+			packet format: [27]
+                           [FF]
+                           BAD
+                           [00]
+                           
+                    bytes: (27 FF 42 41 44 00)
+
+
+
+// --------------------------------------------------
+// unmute user from user
+
+U40. unmute user
+		packet format: [28]
+				       [FF]
+				       [4-BYTE CLIENT ID]
+				       [FF]
+				       [USERNAME]
+				       [00]
+				       
+			    bytes: (28 FF [..] FF [..] 00)
+
+	REPLIES
+	
+	S41. valid, invalid request for remove friend format
+			packet format: [29]
+						   [FF]
+						   [4-BYTE CLIENT ID]
+						   [FF]
+						   [U 01|02|03]
+						   
+					bytes: (29 FF [..] FF 01|02|03)
+					
+					notes: U = username field
+						   possible values: 01 = empty field
+						   				    02 = invalid
+						   				    03 = okay
+		
+	OR
+	
+	S42. bad accept pending friend request packet format
+			packet format: [2A]
+                           [FF]
+                           BAD
+                           [00]
+                           
+                    bytes: (2A FF 42 41 44 00)
+
+// --------------------------------------------------
+// set ignore private messages from user
+
+U43. set ignore private messages
+		packet format: [2B]
+					   [00]
+					   
+				bytes: (2B 00)
+
+// --------------------------------------------------
+// unset ignore private messages from user
+
+U44. unset ignore private messages
+		packet format: [2C]
+					   [00]
+					   
+				bytes: (2C 00)
+
+// --------------------------------------------------
+// set limit private messages to friends from user
+
+U45. set limit private messages to friends
+		packet format: [2D]
+					   [00]
+					   
+				bytes: (2D 00)
+
+// --------------------------------------------------
+// unset limit private messages to friends from user
+
+U46. unset limit private messages to friends
+		packet format: [2E]
+					   [00]
+					   
+				bytes: (2E 00)
+
+// --------------------------------------------------
+// allow paging from user
+
+U47. allow paging
+		packet format: [2F]
+					   [00]
+					   
+				bytes: (2F 00)
+
+// --------------------------------------------------
+// disable paging from user
+
+U48. disable paging
+		packet format: [30]
+					   [00]
+					   
+				bytes: (30 00)
+
+// --------------------------------------------------
+// limit paging to friends from user
+
+U49. limit paging to friends
+		packet format: [31]
+					   [00]
+					   
+				bytes: (31 00)
+
+// --------------------------------------------------
+// allow paging from all from user
+
+U50. allow paging from all
+		packet format: [32]
+					   [00]
+					   
+				bytes: (32 00)
+
+// --------------------------------------------------
+// send page to user from user
+
+U51. send page to user
+		packet format: [
+
+// --------------------------------------------------
+// send page to user from server
+
+
+
+
 
 !END: USER INFORMATION/UPDATE PACKETS
 
-//----------------------------------------------------
-//PACKETS 28-39 are reserved...
-//to sort out the rest of this missing user packets
-//----------------------------------------------------
+
 
 // --------------------------------------------------
 // user logged off from user
 
-U40. log off server
-        packet format: [28]
+U78. log off server
+        packet format: [4E]
                        [00]
                       
-                bytes: (28 00)
+                bytes: (4E 00)
                 
                 notes: server will close connection cleanly
                        connections should attempt to use this whenever possible
@@ -511,13 +735,13 @@ U40. log off server
 // --------------------------------------------------
 // user logged off from server
 
-S41. user logged off from server
-		packet format: [29]
+S79. user logged off from server
+		packet format: [4F]
 		               [FF]
 		               [8-BYTE SOCKET KEY]
 		               [00]
 		               
-		        bytes: (29 FF [..])
+		        bytes: (4F FF [..])
                        
 //----------------------------------------------------
 //PACKETS 42-79 are reserved...
@@ -636,9 +860,11 @@ S83. short chat message
                  packet format: [55]
                                 [FF]
                                 [16-BYTE UNIQUE ID]
+                                [FF]
+                                [8-BYTE UNIQUE ROOM ID]                        
                                 [00]
-                                                                
-                         bytes: (55 FF [..] 00)
+
+                         bytes: (55 FF [..] FF [..] 00)
                          
                          notes: only used if reply didn't match a valid message
                                 on ack. debug packet only.                       
@@ -915,40 +1141,9 @@ U99. resend long chat message next packet
                  notes: PN [UINT32] = packet # 
 
     REPLIES
-        
-    S100. valid, invalid, missing resend long chat message next packet data
+         
+    S100. bad resend long chat message next packet format
              packet format: [64]
-                            [FF]
-                            [16-BYTE UNIQUE ID]
-                            [FF]
-                            [PN 01|02|03]
-                            [RID 01|02|03|08|09]
-                            [M 01|02|03]                            
-                            [00]
-                                
-                     bytes: (64 FF [..] FF 01|02|03 01|02|03|08|09 01|02|03 00)
-                     
-                     notes: PN = packet #
-                            possible values: 01 = empty field
-                                             02 = invalid
-                                             03 = okay
-                            
-                            RID = unique room id field
-                            possible values: 01 = empty field
-                                             02 = invalid
-                                             03 = okay
-                                             08 = not authorized
-                                             09 = not in that room
-                                                 
-                            M = messge body field
-                            possible values: 01 = empty field
-                                             02 = invalid
-                                             03 = okay                                             
-                                                                
-    OR
-
-    S101. bad resend long chat message next packet format
-             packet format: [65]
                             [FF]
                             [PN 4 bytes]
                             [FF]
@@ -957,20 +1152,20 @@ U99. resend long chat message next packet
                             [8-BYTE UNIQUE ROOM ID]                            
                             [00]
                                 
-                     bytes: (65 FF [..] FF [..] FF [..] 00)
+                     bytes: (64 FF [..] FF [..] FF [..] 00)
                      
                      notes: only used if reply didn't match a valid message
                             on ack. debug packet only. 
         
     OR
         
-    S102. bad resend long chat message next packet format
-             packet format: [66]
+    S101. bad resend long chat message next packet format
+             packet format: [65]
                             [FF]
                             BAD
                             [00]
                                 
-                     bytes: (66 FF 42 41 44 00)
+                     bytes: (65 FF 42 41 44 00)
                      
                      notes: this packet is virtually useless, client won't
                             know what message is attached to. it's just a
@@ -1524,6 +1719,15 @@ isPunished
 //        bytes: (12 FF 55 55 00)
 // user has gone offline
 // user has come online
+
+
+
+
+
+
+
+
+
 
 55. [user] move message from room to room
 packet format: [0A][FF][8-byte UNIQUE ROOM ID][FF][16-byte UNIQUE ID][00]
